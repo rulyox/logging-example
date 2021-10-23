@@ -1,0 +1,59 @@
+version: "3"
+
+services:
+  collector:
+    image: logging-collector
+    container_name: logging-collector
+    build:
+      context: ./collector
+      dockerfile: Dockerfile
+    networks:
+      - network
+    volumes:
+      - ./collector/logs:/app/logs
+
+  prometheus:
+    image: prom/prometheus
+    container_name: logging-prometheus
+    depends_on: 
+      - collector
+    networks:
+      - network
+    volumes:
+      - ./configs/prometheus.yml:/etc/prometheus/prometheus.yml
+
+  loki:
+    image: grafana/loki:2.3.0
+    container_name: logging-loki
+    networks:
+      - network
+    volumes:
+      - ./configs/loki.yml:/etc/loki/local-config.yaml
+    command: -config.file=/etc/loki/local-config.yaml
+
+  promtail:
+    image: grafana/promtail:2.3.0
+    container_name: logging-promtail
+    depends_on: 
+      - collector
+      - loki
+    networks:
+      - network
+    volumes:
+      - ./collector/logs:/logs
+      - ./configs/promtail.yml:/etc/promtail/config.yml
+    command: -config.file=/etc/promtail/config.yml
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: logging-grafana
+    depends_on: 
+      - prometheus
+      - loki
+    networks:
+      - network
+    ports:
+      - 3000:3000
+
+networks:
+  network:
